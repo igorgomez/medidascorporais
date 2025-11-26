@@ -22,6 +22,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Garantir que o Node esteja em modo produção no job
+      NODE_ENV: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,8 +38,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set Vite base path
+        run: |
+          # GITHUB_REPOSITORY tem o formato owner/repo
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ "$REPO_NAME" == *.github.io ]]; then
+            VITE_BASE="/"
+          else
+            VITE_BASE="/$REPO_NAME/"
+          fi
+          echo "VITE_BASE=$VITE_BASE" >> $GITHUB_ENV
+          echo "Computed VITE_BASE: $VITE_BASE"
+
       - name: Build
         env:
+          # NODE_ENV já foi definido no job, não é necessário redefinir aqui
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
@@ -44,6 +60,22 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
         run: npm run build
+
+      - name: Verify build artifacts
+        run: |
+          echo "Built files in dist/public:"
+          ls -la dist/public || true
+          echo "Dist folder size:"
+          du -sh dist || true
+          echo "Vite base used in build: $VITE_BASE"
+          if [ -f dist/public/index.html ]; then
+            echo "First 30 lines of index.html (showing asset refs):" 
+            sed -n '1,30p' dist/public/index.html || true
+            echo "Checking that built asset references include VITE_BASE prefix"
+            grep -Eo 'href="[^"]+"|src="[^"]+"' dist/public/index.html | head -n 20 || true
+          else
+            echo "index.html not found in dist/public"
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-pages-artifact@v3
@@ -61,3 +93,24 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Post-deploy HTTP check
+        run: |
+          PAGE_URL="${{ steps.deployment.outputs.page_url }}"
+          echo "Published page: $PAGE_URL"
+          if [ -z "$PAGE_URL" ]; then
+            echo "PAGE_URL is empty; cannot check status"
+            exit 0
+          fi
+          # Retry a few times to allow propagation
+          for i in 1 2 3 4 5; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "$PAGE_URL")
+            echo "Attempt $i: HTTP $status"
+            if [ "$status" -eq 200 ]; then
+              echo "Deployed site is reachable (HTTP 200)."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Deployment check failed: site did not return HTTP 200"
+          exit 1

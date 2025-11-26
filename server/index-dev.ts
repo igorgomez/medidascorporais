@@ -45,10 +45,9 @@ export async function setupVite(app: Express, server: Server) {
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
+      // Replace any src path that ends with "main.tsx" to add a cache-busting query
+      // This supports both default "/src/main.tsx" and the Vite %BASE_URL% placeholder
+      template = template.replace(/src="([^"]*main\.tsx)"/, `src="$1?v=${nanoid()}"`);
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
