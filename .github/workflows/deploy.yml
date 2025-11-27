@@ -1,4 +1,4 @@
-name: Deploy para GitHub Pages (limpo)
+name: Deploy para GitHub Pages
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,19 +22,18 @@ concurrency:
 
 jobs:
   build:
-    name: Build (client)
+    name: Build Vite App
     runs-on: ubuntu-latest
     env:
       NODE_ENV: 'production'
-      # Firebase client config (pass via repository secrets)
-      VITE_FIREBASE_API_KEY: '${{ secrets.VITE_FIREBASE_API_KEY }}'
-      VITE_FIREBASE_AUTH_DOMAIN: '${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}'
-      VITE_FIREBASE_PROJECT_ID: '${{ secrets.VITE_FIREBASE_PROJECT_ID }}'
-      VITE_FIREBASE_STORAGE_BUCKET: '${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}'
-      VITE_FIREBASE_MESSAGING_SENDER_ID: '${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}'
-      VITE_FIREBASE_APP_ID: '${{ secrets.VITE_FIREBASE_APP_ID }}'
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -47,15 +46,13 @@ jobs:
         run: npm ci
 
       - name: Clean dist directory
-        shell: bash
         run: |
           if [ -d dist ]; then
             echo "Removing existing dist directory"
             rm -rf dist || true
           fi
 
-      - name: Compute Vite base (VITE_BASE)
-        shell: bash
+      - name: Compute VITE_BASE
         run: |
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           if [[ "$REPO_NAME" == *.github.io ]]; then
@@ -70,7 +67,6 @@ jobs:
         run: npm run build
 
       - name: Verify build artifacts
-        shell: bash
         run: |
           echo "Built files in dist/public:"
           ls -la dist/public || true
@@ -78,16 +74,16 @@ jobs:
           du -sh dist || true
           echo "Vite base used in build: $VITE_BASE"
           if [ -f dist/public/index.html ]; then
-            echo "First 40 lines of index.html (showing asset refs):"
-            sed -n '1,40p' dist/public/index.html || true
+            echo "First 30 lines of index.html (showing asset refs):"
+            sed -n '1,30p' dist/public/index.html || true
             echo "Checking that built asset references include VITE_BASE prefix"
-            grep -Eo 'href="[^"]+"|src="[^"]+"' dist/public/index.html | head -n 20 || true
+            grep -Eo 'href=\"[^\"]+\"|src=\"[^\"]+\"' dist/public/index.html | head -n 20 || true
           else
             echo "index.html not found in dist/public"
             exit 1
           fi
 
-      - name: Upload artifacts for Pages
+      - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist/public'
@@ -102,132 +98,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Post-deploy HTTP check (verify URL)
-        shell: bash
-        run: |
-          PAGE_URL="${{ steps.deployment.outputs.page_url }}"
-          echo "Published page: $PAGE_URL"
-          if [ -z "$PAGE_URL" ]; then
-            echo "PAGE_URL is empty; skipping check"
-            exit 0
-          fi
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            status=$(curl -s -o /dev/null -w "%{http_code}" -L "$PAGE_URL") || true
-            echo "Attempt $i: HTTP $status"
-            if [ "$status" -ge 200 ] && [ "$status" -lt 400 ]; then
-              echo "Deployed site is reachable (HTTP 2xx/3xx)."
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Deployment check failed: site did not return HTTP 200/300"
-          exit 1
-name: Deploy para GitHub Pages
-
-on:
-  push:
-    branches:
-      - main
-      - master
-  pull_request:
-    branches:
-      - main
-      - master
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      # Garantir que o Node esteja em modo produção no job
-      NODE_ENV: 'production'
-      VITE_FIREBASE_API_KEY: '${{ secrets.VITE_FIREBASE_API_KEY }}'
-      VITE_FIREBASE_AUTH_DOMAIN: '${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}'
-      VITE_FIREBASE_PROJECT_ID: '${{ secrets.VITE_FIREBASE_PROJECT_ID }}'
-      VITE_FIREBASE_STORAGE_BUCKET: '${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}'
-      VITE_FIREBASE_MESSAGING_SENDER_ID: '${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}'
-      VITE_FIREBASE_APP_ID: '${{ secrets.VITE_FIREBASE_APP_ID }}'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Clean dist directory
-        shell: bash
-        run: |
-          if [ -d dist ]; then
-            echo "Removing existing dist directory to avoid tracking committed build artifacts"
-            rm -rf dist || true
-          fi
-
-      - name: Set Vite base path
-        shell: bash
-        run: |
-          # GITHUB_REPOSITORY tem o formato owner/repo
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          if [[ "$REPO_NAME" == *.github.io ]]; then
-            VITE_BASE="/"
-          else
-            VITE_BASE="/$REPO_NAME/"
-          fi
-          echo "VITE_BASE=$VITE_BASE" >> $GITHUB_ENV
-          echo "Computed VITE_BASE: $VITE_BASE"
-
-      - name: Build
-        run: npm run build
-
-      - name: Verify build artifacts
-        shell: bash
-        run: |
-          echo "Built files in dist/public:"
-          ls -la dist/public || true
-          echo "Dist folder size:"
-          du -sh dist || true
-          echo "Vite base used in build: $VITE_BASE"
-          if [ -f dist/public/index.html ]; then
-            echo "First 30 lines of index.html (showing asset refs):" 
-            sed -n '1,30p' dist/public/index.html || true
-            echo "Checking that built asset references include VITE_BASE prefix"
-            grep -Eo 'href="[^"]+"|src="[^"]+"' dist/public/index.html | head -n 20 || true
-          else
-            echo "index.html not found in dist/public"
-          fi
-
-      - name: Upload artifacts
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist/public'
-
-  deploy:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
       - name: Post-deploy HTTP check
-        shell: bash
         run: |
           PAGE_URL="${{ steps.deployment.outputs.page_url }}"
           echo "Published page: $PAGE_URL"
@@ -235,15 +106,14 @@ jobs:
             echo "PAGE_URL is empty; cannot check status"
             exit 0
           fi
-          # Retry a few times to allow propagation
           for i in 1 2 3 4 5 6 7 8 9 10; do
             status=$(curl -s -o /dev/null -w "%{http_code}" -L "$PAGE_URL")
             echo "Attempt $i: HTTP $status"
             if [ "$status" -ge 200 ] && [ "$status" -lt 400 ]; then
-              echo "Deployed site is reachable (HTTP 200)."
+              echo "Deployed site is reachable (HTTP 2xx/3xx)."
               exit 0
             fi
             sleep 5
           done
-          echo "Deployment check failed: site did not return HTTP 200"
+          echo "Deployment check failed: site did not return HTTP 2xx/3xx"
           exit 1
