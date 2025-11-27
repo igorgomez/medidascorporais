@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist/public/
+.env
+.env.*
+.DS_Store
+/.cache
+/.vscode
+/.idea
+.replit
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
