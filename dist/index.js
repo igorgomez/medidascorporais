@@ -64,11 +64,14 @@ async function runApp(setup) {
   });
   await setup(app, server);
   const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen({
+  const listenOptions = {
     port,
-    host: "0.0.0.0",
-    reusePort: true
-  }, () => {
+    host: "0.0.0.0"
+  };
+  if (process.platform !== "win32") {
+    listenOptions.reusePort = true;
+  }
+  server.listen(listenOptions, () => {
     log(`serving on port ${port}`);
   });
 }
