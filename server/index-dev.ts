@@ -45,11 +45,17 @@ export async function setupVite(app: Express, server: Server) {
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      // Replace any src path that ends with "main.tsx" to add a cache-busting query
-      // This supports both default "/src/main.tsx" and the Vite %BASE_URL% placeholder
-      // Add cache-busting query param to the main entry, supporting both src="..." and dynamic import(base + '...')
-      template = template.replace(/src="([^"]*main\.tsx)"/, `src="$1?v=${nanoid()}"`);
-      template = template.replace(/import\(\s*base\s*\+\s*'([^']*main\.tsx)'\s*\)/, (match, p1) => `import(base + '${p1}?v=${nanoid()}')`);
+      // Add a cache-busting query param to the app entry both for
+      // static script tags and for the dynamic base-aware import used
+      // in the HTML. This covers dev and built contexts.
+      template = template.replace(
+        /src=(['"])\/src\/main\.tsx\1/g,
+        (_match, q: string) => `src=${q}/src/main.tsx?v=${nanoid()}${q}`,
+      );
+      template = template.replace(
+        /import\(\s*base\s*\+\s*(['"])src\/main\.tsx\1\s*\)/g,
+        (_match, q: string) => `import(base + ${q}src/main.tsx?v=${nanoid()}${q})`,
+      );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
