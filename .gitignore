@@ -21,3 +21,4 @@ pnpm-debug.log*
 # IDE / Editor directories
 .vscode/
 .idea/
+.gemini/
