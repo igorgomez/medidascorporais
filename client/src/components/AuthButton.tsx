@@ -48,6 +48,4 @@ export default function AuthButton() {
 
   return <LoginForm />;
 }
-utton>
-  );
-}
+
