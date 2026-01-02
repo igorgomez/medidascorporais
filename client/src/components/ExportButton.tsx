@@ -24,7 +24,12 @@ export default function ExportButton({ data }: ExportButtonProps) {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `medidas-corporais-${new Date().toISOString().slice(0, 10)}.json`;
+    
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const dateStr = now.toISOString().slice(0, 10);
+    link.download = `medidas-corporais-${dateStr}.json`;
+    
     link.click();
     URL.revokeObjectURL(url);
 
