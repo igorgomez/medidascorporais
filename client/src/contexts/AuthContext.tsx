@@ -1,17 +1,27 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
   User,
-  signInAnonymously,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { z } from 'zod';
+
+export const loginSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+});
+
+type LoginSchema = z.infer<typeof loginSchema>;
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  signIn: () => Promise<void>;
+  signIn: (credentials: LoginSchema) => Promise<void>;
+  signUp: (credentials: LoginSchema) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -39,13 +49,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signIn = async () => {
+  const signIn = async ({ email, password }: LoginSchema) => {
     try {
       setError(null);
-      await signInAnonymously(auth);
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       console.error('Sign in error:', err);
-      setError('Erro ao fazer login');
+      setError('Email ou senha inválidos.');
+      throw err;
+    }
+  };
+
+  const signUp = async ({ email, password }: LoginSchema) => {
+    try {
+      setError(null);
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      console.error('Sign up error:', err);
+      setError('Erro ao criar conta. Tente novamente.');
       throw err;
     }
   };
@@ -66,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     signIn,
+    signUp,
     signOut,
   };
 
