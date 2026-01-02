@@ -23,9 +23,15 @@ interface MeasurementFormProps {
 }
 
 export default function MeasurementForm({ onSubmit, isSubmitting }: MeasurementFormProps) {
+  const getLocalDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
+
   const { toast } = useToast();
   const [formData, setFormData] = useState<MeasurementData>({
-    date: new Date().toISOString().slice(0, 16),
+    date: getLocalDateTime(),
     weight: "",
     height: "",
     chest: "",
@@ -56,7 +62,7 @@ export default function MeasurementForm({ onSubmit, isSubmitting }: MeasurementF
     
     // Reset form after successful submission
     setFormData({
-      date: new Date().toISOString().slice(0, 16),
+      date: getLocalDateTime(),
       weight: "",
       height: "",
       chest: "",

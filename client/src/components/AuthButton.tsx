@@ -1,40 +1,25 @@
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
-import { LogIn, LogOut, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { LogOut, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import LoginForm from './LoginForm';
 
 export default function AuthButton() {
-  const { user, loading, signIn, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
-
-  const handleSignIn = async () => {
-    try {
-      await signIn();
-      toast({
-        title: "Bem-vindo!",
-        description: "Login realizado com sucesso",
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao fazer login. Tente novamente.",
-      });
-    }
-  };
 
   const handleSignOut = async () => {
     try {
       await signOut();
       toast({
-        title: "Até logo!",
-        description: "Logout realizado com sucesso",
+        title: 'Até logo!',
+        description: 'Logout realizado com sucesso',
       });
     } catch (error) {
       toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao fazer logout. Tente novamente.",
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Erro ao fazer logout. Tente novamente.',
       });
     }
   };
@@ -61,15 +46,6 @@ export default function AuthButton() {
     );
   }
 
-  return (
-    <Button
-      variant="default"
-      size="sm"
-      onClick={handleSignIn}
-      data-testid="button-login"
-    >
-      <LogIn className="w-4 h-4 mr-2" />
-      Entrar
-    </Button>
-  );
+  return <LoginForm />;
 }
+
